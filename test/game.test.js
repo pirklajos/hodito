@@ -12,16 +12,16 @@ test('a támadó csak érvényes közös határon költhet katonát',()=>{
 });
 test('két játékos szobája, jogosultságok, visszacsatlakozás és építési ellenőrzés',async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
- const post=async(path,b)=>{const res=await fetch(base+path,{method:'POST',body:JSON.stringify(b)});return {status:res.status,body:await res.json()};};
+ const post=async(path,b)=>{const res=await fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});return {status:res.status,body:await res.json()};};
  try{
  const a=(await post('/api/create',{name:'Gazda'})).body;const b=(await post(`/api/${a.code}/join`,{name:'Barát'})).body;
- assert.equal((await post(`/api/${a.code}/start`,{token:b.token})).status,400);
+ assert.equal((await post(`/api/${a.code}/start`,{token:b.token})).status,403);
  assert.equal((await post(`/api/${a.code}/start`,{token:a.token,bots:0})).status,200);
- assert.equal((await post(`/api/${a.code}/join`,{name:'Késő'})).status,400);
- const ac=new AbortController();const res=await fetch(`${base}/api/${a.code}/events?token=${a.token}`,{signal:ac.signal});const reader=res.body.getReader();const chunk=new TextDecoder().decode((await reader.read()).value);ac.abort();
+ assert.equal((await post(`/api/${a.code}/join`,{name:'Késő'})).status,409);
+ const ac=new AbortController();const res=await fetch(`${base}/api/${a.code}/events`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:a.token}),signal:ac.signal});const reader=res.body.getReader();const chunk=new TextDecoder().decode((await reader.read()).value);ac.abort();
  const state=JSON.parse(chunk.split('data: ')[1].split('\n')[0]);assert.equal(state.you,1);assert.equal(state.players.length,2);assert.ok(!chunk.includes(a.token));assert.ok(!chunk.includes(b.token));
  const own=state.tiles.indexOf(1);assert.equal((await post(`/api/${a.code}/build`,{token:a.token,type:'city',at:own})).status,200);
  assert.equal((await post(`/api/${a.code}/build`,{token:a.token,type:'city',at:own})).status,400);
- assert.equal((await post(`/api/${a.code}/attack`,{token:'hamis',target:0,ratio:.2})).status,400);
+ assert.equal((await post(`/api/${a.code}/attack`,{token:'hamis',target:0,ratio:.2})).status,401);
  }finally{server.closeAllConnections();await new Promise(r=>server.close(r));}
 });
